@@ -29,10 +29,17 @@ def load_dictionary(path, word2id1, word2id2):
     not_found1 = 0
     not_found2 = 0
 
-    with io.open(path, 'r', encoding='utf-8') as f:
-        for _, line in enumerate(f):
-            assert line == line.lower()
-            word1, word2 = line.rstrip().split()
+    with io.open(path, 'r', encoding='utf-8',errors='ignore') as f:
+        for line_num, line in enumerate(f):
+            if line != line.lower():
+                line = line.lower()
+            ## print(line_num,end=',')
+            tmp = line.rstrip().split()
+            if not len(tmp)==2:
+                print("Warning: Found {} words in line #{}".format(len(tmp),line_num))
+                continue
+            word1,word2 = tmp[0],tmp[1]
+            
             if word1 in word2id1 and word2 in word2id2:
                 pairs.append((word1, word2))
             else:
@@ -64,16 +71,17 @@ def get_word_translation_accuracy(lang1, word2id1, emb1, lang2, word2id2, emb2, 
     if dico_eval == 'default':
         path = os.path.join(DIC_EVAL_PATH, '%s-%s.5000-6500.txt' % (lang1, lang2))
     elif dico_eval == 'vecmap':
-        path = os.path.join(DIC_EVAL_PATH, 'vecmap/%s-%s.5000-6500.txt' % (lang1, lang2))
+        path = os.path.join(DIC_EVAL_PATH, 'vecmap/%s-%s.test.txt' % (lang1, lang2))
     else:
         path = dico_eval
     dico = load_dictionary(path, word2id1, word2id2) # Return a torch tensor of size (n, 2) containing word2id indexes
     dico = dico.cuda() if emb1.is_cuda else dico
 
-    assert dico[:, 0].max() < emb1.size(0)
-    assert dico[:, 1].max() < emb2.size(0)
+    #assert dico[:, 0].max() < emb1.size(0)
+    #assert dico[:, 1].max() < emb2.size(0)
 
     # normalize word embeddings
+
     emb1 = emb1 / emb1.norm(2, 1, keepdim=True).expand_as(emb1)
     emb2 = emb2 / emb2.norm(2, 1, keepdim=True).expand_as(emb2)
 

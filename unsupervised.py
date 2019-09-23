@@ -172,6 +172,29 @@ if params.adversarial:
             logger.info('Learning rate < 1e-6. BREAK.')
             break
 
+trainer.reload_best_AB()
+emb1 = (trainer.mapping_G(trainer.encoder_A(trainer.src_emb.weight.data)).data)
+emb2 = (trainer.encoder_B(trainer.tgt_emb.weight.data).data)
+logger.info('Evaluating adversarial mapping A->B')
+get_word_translation_accuracy(
+        params.src_dico.lang, params.src_dico.word2id, emb1,
+        params.tgt_dico.lang, params.tgt_dico.word2id, emb2,
+        method='csls_knn_10',
+        dico_eval=params.dico_eval
+)
+
+trainer.reload_best_BA()
+
+emb1 = ((trainer.encoder_A(trainer.src_emb.weight.data)).data)
+emb2 = (trainer.mapping_F(trainer.encoder_B(trainer.tgt_emb.weight.data)).data)
+
+logger.info('Evaluating adversarial mapping B->A')
+get_word_translation_accuracy(
+        params.tgt_dico.lang, params.tgt_dico.word2id, emb2,
+        params.src_dico.lang, params.src_dico.word2id, emb1,
+        method='csls_knn_10',
+        dico_eval=params.dico_eval
+    )
 
 """
 Learning loop for Refinement Procedure
@@ -193,8 +216,10 @@ for n_iter in range(params.n_procrustes):
     trainer.procrustes_AB()
 
     # build a dictionary from aligned embeddings
-    emb1 = (trainer.mapping_G(trainer.encoder_A(trainer.src_emb.weight.data)).data)[0:params.dico_max_rank]
-    emb2 = (trainer.encoder_B(trainer.tgt_emb.weight.data).data)[0:params.dico_max_rank]
+    src = (trainer.mapping_G(trainer.encoder_A(trainer.src_emb.weight.data)).data)
+    tgt = (trainer.encoder_B(trainer.tgt_emb.weight.data).data)
+    emb1 = src[0:params.dico_max_rank]
+    emb2 = tgt[0:params.dico_max_rank]
     emb1 = emb1 / emb1.norm(2, 1, keepdim=True).expand_as(emb1)
     emb2 = emb2 / emb2.norm(2, 1, keepdim=True).expand_as(emb2)
     all_pairs, all_scores = generate_new_dictionary(emb1, emb2)
@@ -207,11 +232,17 @@ for n_iter in range(params.n_procrustes):
     if score_mean - prev_score_mean >= 1e-06:
         prev_score_mean = score_mean
     elif n_iter>20:
-        break    
-    
+        break
+
 logger.info('Finished %i procrustes iteration ... for A to B' % n_iter)
 to_log = OrderedDict({'n_iter': n_iter})
 
+get_word_translation_accuracy(
+        params.src_dico.lang, params.src_dico.word2id, src,
+        params.tgt_dico.lang, params.tgt_dico.word2id, tgt,
+        method='csls_knn_10',
+        dico_eval=params.dico_eval
+    )
 
 # Symmetric Reweighting for language A->B
 print("** Symmetric Reweighting for ", params.src_lang, "to ", params.tgt_lang,  " **")
@@ -240,9 +271,7 @@ get_word_translation_accuracy(
         params.tgt_dico.lang, params.tgt_dico.word2id, zw,
         method='csls_knn_10',
         dico_eval=params.dico_eval
-    )
-
-
+)
 
 
 # Refinement for language B->A 
@@ -259,8 +288,10 @@ for n_iter in range(params.n_procrustes):
     trainer.procrustes_BA()
 
     # build a dictionary from aligned embeddings
-    emb1 = ((trainer.encoder_A(trainer.src_emb.weight.data)).data)[0:params.dico_max_rank]
-    emb2 = (trainer.mapping_F(trainer.encoder_B(trainer.tgt_emb.weight.data)).data)[0:params.dico_max_rank]
+    src = ((trainer.encoder_A(trainer.src_emb.weight.data)).data)
+    tgt = (trainer.mapping_F(trainer.encoder_B(trainer.tgt_emb.weight.data)).data)
+    emb1 = src[0:params.dico_max_rank]
+    emb2 = tgt[0:params.dico_max_rank]
     emb1 = emb1 / emb1.norm(2, 1, keepdim=True).expand_as(emb1)
     emb2 = emb2 / emb2.norm(2, 1, keepdim=True).expand_as(emb2)
     all_pairs, all_scores = generate_new_dictionary(emb2, emb1)
@@ -276,6 +307,13 @@ for n_iter in range(params.n_procrustes):
 
 logger.info('Finished %i procrustes iteration ... for B to A' % n_iter)
 to_log = OrderedDict({'n_iter': n_iter})
+
+get_word_translation_accuracy(
+        params.tgt_dico.lang, params.tgt_dico.word2id, tgt,
+        params.src_dico.lang, params.src_dico.word2id, src,
+        method='csls_knn_10',
+        dico_eval=params.dico_eval
+)
 
 # Symmetric Reweighting for language B->A
 print("** Symmetric Reweighting for ", params.tgt_lang, "to ", params.src_lang,  " **")
@@ -304,13 +342,4 @@ get_word_translation_accuracy(
         params.src_dico.lang, params.src_dico.word2id, xw,
         method='csls_knn_10',
         dico_eval=params.dico_eval
-    )
-
-
-
-
-
-
-
-
-
+)

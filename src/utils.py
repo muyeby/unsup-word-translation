@@ -174,7 +174,7 @@ def get_exp_path(params):
                 break
     else:
         exp_path = os.path.join(exp_folder, params.exp_id)
-        assert not os.path.isdir(exp_path), exp_path
+        #assert not os.path.isdir(exp_path), exp_path
     # create the dump folder
     if not os.path.isdir(exp_path):
         subprocess.Popen("mkdir %s" % exp_path, shell=True).wait()
@@ -341,10 +341,12 @@ def normalize_embeddings(emb, types, mean=None):
         if t == '':
             continue
         if t == 'center':
+            #print('Centering word embeddings')
             if mean is None:
                 mean = emb.mean(0, keepdim=True)
             emb.sub_(mean.expand_as(emb))
         elif t == 'renorm':
+            #print('renorming word embeddings')
             emb.div_(emb.norm(2, 1, keepdim=True).expand_as(emb))
         else:
             raise Exception('Unknown normalization type: "%s"' % t)
